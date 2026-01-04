@@ -1,0 +1,12 @@
+{
+  "theme": "light",
+  "theme_comment": "设置主题颜色",
+  "layout": "default",
+  "layout_comment": "布局方式，如顶部布局，默认布局，混合布局等，可选值有 default",
+  "menuCollapse": false,
+  "menuCollapse_comment": "主页左侧菜单初始状态是否折叠",
+  "animate": true,
+  "animate_comment": "是否开启页面切换动画，对于页面的main区域进行动画切换的设置",
+  "animateMode": "zoom-fade",
+  "animateMode_comment": "页面切换动画的模式，可选值有???"
+}

@@ -1,0 +1,16 @@
+
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ],
+  // 下面这些 compilerOptions 和 include 其实都不需要，
+  // 因为具体配置已经在 app.json 里做过了。
+  // 留空或者删掉都可以，保持干净最好。
+  "compilerOptions": {
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true
+  }
+}
