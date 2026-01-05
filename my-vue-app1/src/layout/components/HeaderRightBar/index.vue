@@ -5,9 +5,8 @@
 <template>
     <a-row justify="end" align="center">
         <a-space size="medium">
-            <!-- 雅安老年大学管理平台 标题 -->
-            <a-col class="pingtainame">雅安老年联盟信息化管理平台</a-col>
-            <!-- <span class="pingtainame">雅安老年大学信息化管理平台</span> -->
+
+            <a-col class="pingtainame">远程智能运维系统</a-col>
             <!-- 项目配置按钮 -->
             <a-tooltip content="项目配置" position="bl">
                 <a-button size="mini" class="gi_hover_btn" @click="handleOpenSettings">

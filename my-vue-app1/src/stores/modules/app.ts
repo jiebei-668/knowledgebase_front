@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
-import { computed, reactive, toRefs } from 'vue'
+import { computed, reactive, toRefs, watch} from 'vue'
 import { generate, getRgbStr } from '@arco-design/color'
 import defaultSettings from '@/config/setting.json'
+
 
 /**
  * 主题相关常量
@@ -18,6 +19,16 @@ const THEME_CONSTANTS = {
 const storeSetup = () => {
   // 初始化 App 配置
   const settingConfig = reactive({ ...defaultSettings }) as App.SettingConfig
+  console.log(settingConfig.layout)
+
+  // 添加此监听器
+  watch(() => settingConfig.layout, (newVal, oldVal) => {
+    console.group('Layout 属性变更');
+    console.log('旧值:', oldVal);
+    console.log('新值:', newVal);
+    console.trace('查看调用堆栈，确定是谁修改了它');
+    console.groupEnd();
+  }, { immediate: true });
 
   /**
    * 计算页面切换动画类名
@@ -31,40 +42,40 @@ const storeSetup = () => {
    * 计算深色主题下的主题色变量
    * 生成一组主题色的 RGB 值，用于 CSS 变量
    */
-  // const themeCSSVar = computed<Record<string, string>>(() => {
-  //   const colorVariables: Record<string, string> = {}
-  //   const themeColors = generate(settingConfig.themeColor, {
-  //     list: true,
-  //     dark: true
-  //   }) as string[]
-  //
-  //   themeColors.forEach((color, index) => {
-  //     colorVariables[`--primary-${index + 1}`] = getRgbStr(color)
-  //   })
-  //   return colorVariables
-  // })
+  const themeCSSVar = computed<Record<string, string>>(() => {
+    const colorVariables: Record<string, string> = {}
+    const themeColors = generate(settingConfig.themeColor, {
+      list: true,
+      dark: true
+    }) as string[]
+
+    themeColors.forEach((color, index) => {
+      colorVariables[`--primary-${index + 1}`] = getRgbStr(color)
+    })
+    return colorVariables
+  })
 
   /**
    * 设置主题色
    * 生成主题色的色阶并应用到 CSS 变量
    * @param color - 主题色值
    */
-  // const setThemeColor = (color: string) => {
-  //   if (!color) return
-  //
-  //   settingConfig.themeColor = color
-  //   const themeColors = generate(color, {
-  //     list: true,
-  //     dark: settingConfig.theme === THEME_CONSTANTS.DARK
-  //   }) as string[]
-  //
-  //   themeColors.forEach((color, index) => {
-  //     document.body.style.setProperty(
-  //       `--primary-${index + 1}`,
-  //       getRgbStr(color)
-  //     )
-  //   })
-  // }
+  const setThemeColor = (color: string) => {
+    if (!color) return
+
+    settingConfig.themeColor = color
+    const themeColors = generate(color, {
+      list: true,
+      dark: settingConfig.theme === THEME_CONSTANTS.DARK
+    }) as string[]
+
+    themeColors.forEach((color, index) => {
+      document.body.style.setProperty(
+        `--primary-${index + 1}`,
+        getRgbStr(color)
+      )
+    })
+  }
 
   /**
    * 切换主题模式（暗黑/明亮）
@@ -86,11 +97,11 @@ const storeSetup = () => {
    * 初始化主题设置
    * 在应用启动时设置初始主题色
    */
-  // const initTheme = () => {
-  //   if (settingConfig.themeColor) {
-  //     setThemeColor(settingConfig.themeColor)
-  //   }
-  // }
+  const initTheme = () => {
+    if (settingConfig.themeColor) {
+      setThemeColor(settingConfig.themeColor)
+    }
+  }
 
   /**
    * 设置菜单折叠状态
@@ -103,10 +114,10 @@ const storeSetup = () => {
   return {
     ...toRefs(settingConfig),
     transitionName,
-    // themeCSSVar,
+    themeCSSVar,
     toggleTheme,
-    // setThemeColor,
-    // initTheme,
+    setThemeColor,
+    initTheme,
     setMenuCollapse
   }
 }

@@ -78,8 +78,33 @@ const errorRoutes: RouteRecordRaw[] = [
 ]
 
 
+const labRoute: RouteRecordRaw = {
+    path: '/lab',
+    name: 'Lab',
+    component: () => import('@/layout/index.vue'),
+    redirect: '/lab/test',
+    meta: {
+        title: '实验室',
+        icon: 'icon-experiment',
+        svgIcon: 'menu-lab', // 如果你有对应的SVG图标
+        hidden: false,
+    },
+    children: [
+        {
+            path: '/lab/test',
+            name: 'LabTest',
+            component: () => import('@/components/Bye.vue'), // 确保这个文件存在
+            meta: {
+                title: '实验测试',
+                icon: 'icon-bulb',
+                hidden: false,
+            }
+        }
+    ]
+}
+
 /** 静态路由配置 */
-export const constantRoutes: RouteRecordRaw[] = [...baseRoutes, ...errorRoutes, homeRoute]
+export const constantRoutes: RouteRecordRaw[] = [...baseRoutes, ...errorRoutes, homeRoute, labRoute]
 // 创建路由器实例
 const router = createRouter({
     history: createWebHashHistory(import.meta.env.BASE_URL),

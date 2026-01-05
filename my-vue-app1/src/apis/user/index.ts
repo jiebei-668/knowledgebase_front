@@ -21,7 +21,7 @@ export const getUserInfo = () => {
 
 /** 获取用户路由信息 */
 export const getUserRoutes = () => {
-  return http.get<MenuItem[]>('/user/getUserRoutes')
+  return http.post<MenuItem[]>('/user/getUserRoutes')
 }
 /** 修改密码 **/
 export function updatePassword(data: AccountDTO){

@@ -1,6 +1,6 @@
 <template>
   <a-layout class="layout-default">
-<!--    <Asider></Asider>-->
+    <Asider></Asider>
     <a-layout class="layout-default__right">
       <Header></Header>
 <!--      <Tabs></Tabs>-->
@@ -12,6 +12,7 @@
 <script setup lang="ts">
 import Header from './components/Header/index.vue'
 import Main from './components/Main.vue'
+import Asider from './components/Asider/index.vue'
 
 defineOptions({ name: 'LayoutDefault' })
 </script>

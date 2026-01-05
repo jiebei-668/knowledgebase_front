@@ -43,6 +43,63 @@ export default [
                 message: '获取用户信息成功'
             }
         }
+    },
+    {
+        url: '/mock/user/getUserRoutes',
+        method: 'post',
+        response: () => {
+            return {
+                success: true,
+                code: 200,
+                message: 'ok',
+                data: [
+                    {
+                        id: '1',
+                        parentId: '0',
+                        path: '/system',
+                        component: 'Layout',
+                        title: '系统管理',
+                        icon: 'icon-settings',
+                        sort: 1,
+                        hidden: false,
+                        children: [
+                            {
+                                id: '2',
+                                parentId: '1',
+                                path: '/system/user',
+                                component: 'system/user/index', // 对应 views/system/user/index.vue
+                                title: '用户管理',
+                                icon: 'icon-user',
+                                sort: 1,
+                                hidden: false
+                            }
+                        ]
+                    },
+                    {
+                        id: '3',
+                        parentId: '0',
+                        path: '/news',
+                        component: 'Layout',
+                        title: '信息发布',
+                        icon: 'icon-send',
+                        sort: 2,
+                        hidden: false,
+                        children: [
+                            {
+                                id: '4',
+                                parentId: '3',
+                                path: '/newsRelease/edit', // 触发你 route.ts 里的特殊 props 处理
+                                component: 'news/edit',
+                                title: '编辑发布',
+                                icon: 'icon-edit',
+                                sort: 1,
+                                hidden: false
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
     }
 
 
