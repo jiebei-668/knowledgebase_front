@@ -29,11 +29,19 @@ const tabsStore = useTabsStore()
 
 <style lang="scss" scoped>
 .main {
-  position: relative;
+  /* ✅ 关键：不要用 height: 100%，要用 flex: 1 */
+  flex: 1;
   width: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-sizing: border-box;
+  padding: 16px;
+  background-color: #f2f3f5;
+  
+  /* 确保内部的 router-view 渲染出来的 div 也能撑满 */
+  :deep(> div) {
+    height: 100%;
+  }
 }
 </style>

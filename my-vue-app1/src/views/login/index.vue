@@ -46,7 +46,7 @@
 <script setup lang="ts">
 import { type FormInstance } from '@arco-design/web-vue'
 import LoginBg from './components/LoginBg/index.vue'
-import { useTabsStore, useUserStore } from '@/stores'
+import { useUserStore } from '@/stores'
 import { useLoading } from '@/hooks'
 import { isMobile } from '@/utils'
 
@@ -54,7 +54,7 @@ import { isMobile } from '@/utils'
 defineOptions({ name: 'Login' })
 const router = useRouter()
 const userStore = useUserStore()
-const tabsStore = useTabsStore()
+
 
 
 
@@ -88,7 +88,7 @@ const login = async () => {
     await userStore.login(form)
     // tabsStore.reset()
 
-    const { redirect, ...othersQuery } = router.currentRoute.value.query
+   // const { redirect,...othersQuery} = router.currentRoute.value.query
       // 见router/index.ts 的首页url
       router.push({
           path: '/home'

@@ -4,9 +4,11 @@ import { MockMethod } from 'vite-plugin-mock'
 export default [
     // 1. 模拟登录接口
     {
-        url: '/mock/user/login', // ⚠️ 请确认这里与你的 src/apis/user.ts 中的 url 一致
+        url: '/mock/user/login',
         method: 'post',
-        response: ({ body }) => {
+        // ❌ 修改前: response: ({ body }) => {
+        // ✅ 修改后: 显式声明 body 的类型 (最简单的办法是给个 any)
+        response: ({ body }: { body: any }) => {
             // 简单模拟验证逻辑
             const { username, password } = body
             if (username === 'admin' && password === 'admin') {
@@ -23,7 +25,7 @@ export default [
                     success: false,
                     code: 401,
                     data: null,
-                    message: '账号或密码错误（尝试 admin/123456）'
+                    message: '账号或密码错误（尝试 admin/admin）'
                 }
             }
         },
@@ -67,7 +69,7 @@ export default [
                                 id: '2',
                                 parentId: '1',
                                 path: '/system/user',
-                                component: 'system/user/index', // 对应 views/system/user/index.vue
+                                component: 'system/user/index',
                                 title: '用户管理',
                                 icon: 'icon-user',
                                 sort: 1,
@@ -88,7 +90,7 @@ export default [
                             {
                                 id: '4',
                                 parentId: '3',
-                                path: '/newsRelease/edit', // 触发你 route.ts 里的特殊 props 处理
+                                path: '/newsRelease/edit',
                                 component: 'news/edit',
                                 title: '编辑发布',
                                 icon: 'icon-edit',
@@ -101,6 +103,4 @@ export default [
             }
         }
     }
-
-
 ] as MockMethod[]

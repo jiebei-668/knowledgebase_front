@@ -3,12 +3,12 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import createRouteGuard from "@/router/guard";
-import {useRouteStore} from "@/stores";
+import { useRouteStore } from "@/stores";
 
-/** 默认布局组件 */
+/** 默认布局组件 (带有侧边栏和顶部的框架) */
 const Layout = () => import('@/layout/index.vue')
 
-/** 基础路由配置 */
+/** 基础路由配置 (登录、重定向等) */
 const baseRoutes: RouteRecordRaw[] = [
     {
         path: '/redirect',
@@ -32,68 +32,68 @@ const baseRoutes: RouteRecordRaw[] = [
         meta: { hidden: true }
     }
 ]
-const homeRoute: RouteRecordRaw = {
-    // 主页路由
 
+// === 主业务路由配置 ===
+const homeRoute: RouteRecordRaw = {
     path: '/',
     name: 'Home',
-    component: () => import('../layout/index.vue'),
-    redirect: '/home',
+    component: Layout, // 使用布局外壳
+    redirect: '/chat', // ✅ 修改 1：默认跳转到你的运维聊天界面
     children: [
         {
-            path: '/home',
-            component: () => import('../components/Hello.vue'),
-            name: 'HomeIndex',
+            // ✅ 修改 2：配置运维聊天界面
+            path: '/chat',
+            name: 'OpsChat', // 给路由起个名字，叫运维对话
+            // ⚠️ 指向你存放文件的位置
+            component: () => import('@/views/chat/index.vue'),
             meta: {
-                title: '首页',
+                title: '智能运维助手',  // ✅ 菜单栏显示的文字
+                icon: 'icon-robot',    // ✅ 图标改为机器人，符合运维场景
+                svgIcon: 'menu-chat',  
+                affix: true,           // 固定在标签页
+                hidden: false          // 显示在侧边栏
+            }
+        },
+        {
+            // 旧首页 (保留作为备用，可以随时切回去)
+            path: '/home',
+            name: 'HomeIndex',
+            component: () => import('@/components/Hello.vue'),
+            meta: {
+                title: '系统概览',     // 改个名字区别一下
                 icon: 'icon-dashboard',
-                svgIcon: 'menu-home',
-                affix: true,
-                hidden: false,
-                breadcrumb: false
+                hidden: false
             }
         },
         {
             path: '/hello',
             name: 'Hello',
-            component: () => import('../components/Hello.vue'),
+            component: () => import('@/components/Hello.vue'),
+            meta: { hidden: true }
         },
     ],
-
-
 }
 
 /** 错误页面路由配置 */
-const errorRoutes: RouteRecordRaw[] = [
-    // {
-    //   path: '/:pathMatch(.*)*',
-    //   component: () => import('@/views/error/404.vue'),
-    //   meta: { hidden: true }
-    // },
-    // {
-    //   path: '/403',
-    //   component: () => import('@/views/error/403.vue'),
-    //   meta: { hidden: true }
-    // }
-]
+const errorRoutes: RouteRecordRaw[] = []
 
-
+/** 实验室路由 (保持不变) */
 const labRoute: RouteRecordRaw = {
     path: '/lab',
     name: 'Lab',
-    component: () => import('@/layout/index.vue'),
+    component: Layout,
     redirect: '/lab/test',
     meta: {
         title: '实验室',
         icon: 'icon-experiment',
-        svgIcon: 'menu-lab', // 如果你有对应的SVG图标
+        svgIcon: 'menu-lab',
         hidden: false,
     },
     children: [
         {
             path: '/lab/test',
             name: 'LabTest',
-            component: () => import('@/components/Bye.vue'), // 确保这个文件存在
+            component: () => import('@/components/Bye.vue'),
             meta: {
                 title: '实验测试',
                 icon: 'icon-bulb',
@@ -103,8 +103,9 @@ const labRoute: RouteRecordRaw = {
     ]
 }
 
-/** 静态路由配置 */
+/** 汇总所有路由 */
 export const constantRoutes: RouteRecordRaw[] = [...baseRoutes, ...errorRoutes, homeRoute, labRoute]
+
 // 创建路由器实例
 const router = createRouter({
     history: createWebHashHistory(import.meta.env.BASE_URL),
@@ -115,11 +116,10 @@ const router = createRouter({
 // 创建路由守卫
 createRouteGuard(router)
 
-/** 重置路由配置 - 清除所有动态添加的路由 */
+/** 重置路由工具函数 */
 export function resetRouter(): void {
     try {
         const routeStore = useRouteStore()
-        // 移除所有动态路由
         routeStore.asyncRoutes.forEach((route) => {
             const { name } = route
             if (name && router.hasRoute(name)) {
@@ -128,7 +128,6 @@ export function resetRouter(): void {
         })
     } catch (error) {
         console.error('重置路由失败:', error)
-        // 降级处理：刷新页面以重置路由状态
         window.location.reload()
     }
 }
