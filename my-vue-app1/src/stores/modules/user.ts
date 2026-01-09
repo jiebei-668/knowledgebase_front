@@ -1,9 +1,11 @@
+// src/stores/user.ts
 /** @file 用户状态管理模块 - 处理用户登录、权限和信息管理 */
 
 import { defineStore } from 'pinia'
 import { computed, reactive, ref } from 'vue'
 import { resetRouter } from '@/router'
-import { type UserInfo, getUserInfo as getUserInfoApi, login as loginApi, logout as logoutApi } from '@/apis/user'
+// ✅ 修复: 移除了未使用的 logout as logoutApi
+import { type UserInfo, getUserInfo as getUserInfoApi, login as loginApi } from '@/apis/user'
 import { clearToken, getToken, setToken } from '@/utils/auth'
 import { Message } from '@arco-design/web-vue'
 
@@ -33,7 +35,6 @@ const storeSetup = () => {
     /** 用户令牌 */
     const token = ref<string>(getToken() || '')
 
-
     /**账号 **/
     const username = ref<string>('')
 
@@ -51,11 +52,16 @@ const storeSetup = () => {
      */
     const login = async (params: LoginParams): Promise<void> => {
         try {
+            // 这里 await loginApi(params) 返回的是 any (经过 API 层处理后的数据对象)
             const res = await loginApi(params)
+            
+            // 验证后端返回的 success 字段
             if(!res.success) {
-                Message.error('账号密码错误，请重试！')
+                Message.error(res.message || '账号密码错误，请重试！')
                 return
             }
+            
+            // 解构 token
             const { token: newToken } = res.data
             setToken(newToken)
             token.value = newToken
@@ -73,10 +79,9 @@ const storeSetup = () => {
      */
     const logout = async (): Promise<boolean> => {
         try {
-            // await logoutApi()
-            // 清除用户状态
+            // 如果以后需要调用后端退出接口，可以直接用 mockRequest.post('/logout')
+            // 目前仅前端清除状态
             token.value = ''
-
             resetToken()
             resetRouter()
             return true
@@ -94,30 +99,16 @@ const storeSetup = () => {
     const getInfo = async (): Promise<void> => {
         try {
             const res = await getUserInfoApi()
-            console.log(res)
-
-            // 更新用户基本信息
-            // userInfo.nickname = nickname
-            // userInfo.avatar = userAvatar
-            // userInfo.campusIds = userCampusIds
-            // userInfo.username = userUsername
-
-            // 更新用户角色和权限
-            // if (userRoles?.length) {
-            //     roles.value = userRoles
-            //     permissions.value = userPermissions || []
-            //     campusIds.value = userCampusIds || []
-            //     rootCampusIds.value = userRootCampusIds || []
-            //     subCampusIds.value = userSubCampusIds || []
-            //     campusId2Campus.value = userCampusId2Campus || []
-            //     semesterId2Semester.value = userSemesterId2Semester || []
-            //     departmentId2Department.value = userDepartmentId2Department || []
-            //     roleId2Role.value = userRoleId2Role || []
-            //     username.value = userUsername || ''
-            //     newsApproval.value = userNewsApproval || []
-            //     activityApproval.value = userActivityApproval || []
-            //
-            // }
+            console.log('用户信息:', res)
+            
+            // 根据你的 Mock 数据结构绑定信息
+            // 假设 res.data 包含这些字段
+            if (res.success && res.data) {
+                const data = res.data
+                userInfo.nickname = data.username || 'Admin'
+                userInfo.avatar = data.avatar || ''
+                // 其他字段按需赋值...
+            }
         } catch (error) {
             console.error('获取用户信息失败:', error)
             throw error
@@ -154,7 +145,9 @@ const storeSetup = () => {
  */
 export const useUserStore = defineStore('user', storeSetup, {
     persist: {
-        paths: ['token'],
-        storage: localStorage
+        key: 'user-store', // 建议加上 key
+        storage: localStorage,
+        // ✅ 修复: pinia-plugin-persistedstate v4 使用 `pick` 而不是 `paths`
+        pick: ['token'] 
     }
 })

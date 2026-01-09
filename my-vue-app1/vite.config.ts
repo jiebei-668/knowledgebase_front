@@ -16,6 +16,22 @@ export default defineConfig(({mode}) => {
     return {
         // 开发或生产环境服务的公共基础路径
         base: env.VITE_BASE,
+        
+        // --- 新增/修改：代理服务配置 (关键部分) ---
+        server: {
+            host: '0.0.0.0', // 允许本机 IP 访问
+            proxy: {
+                // 拦截以 /api-tog 开头的请求
+                '/api-tog': {
+                    target: 'http://192.168.1.119:8080', // 真实后端 ToG 服务地址 
+                    changeOrigin: true, // 允许跨域
+                    // 路径重写：请求发出前把 /api-tog 前缀去掉，因为后端接口是 /api/tog
+                    rewrite: (path) => path.replace(/^\/api-tog/, '') 
+                }
+            }
+        },
+        // ---------------------------------------
+
         // 路径别名
         resolve: {
             alias: {
@@ -63,4 +79,3 @@ export default defineConfig(({mode}) => {
         ]
     }
 })
-

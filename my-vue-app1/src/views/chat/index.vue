@@ -32,7 +32,6 @@
             </div>
 
             <div class="layer-2-main">
-              
               <div v-if="viewState === 'overview'" class="grid-container">
                 <div 
                   v-for="comp in companies" 
@@ -74,9 +73,17 @@
                 
                 <div class="kb-header-row">
                   <div class="title">请选择知识库进行诊断</div>
-                  <a-button type="primary">
-                    <template #icon><icon-plus /></template>
-                    新建知识库
+                  
+                  <input 
+                    type="file" 
+                    ref="fileInputRef"
+                    style="display: none"
+                    accept=".txt" 
+                    @change="handleFileUpload"
+                  />
+                  <a-button type="primary" :loading="isUploading" @click="triggerUpload">
+                    <template #icon><icon-upload /></template>
+                    上传TXT构建图谱
                   </a-button>
                 </div>
 
@@ -121,7 +128,7 @@
             <div class="chat-header">
               <div class="header-info">
                 <icon-robot style="margin-right: 8px;" />
-                <span>正在对话: {{ chatTarget }} (基于 {{ selectedKB }})</span>
+                <span>正在对话: {{ chatTarget }} (基于 {{ selectedKBName }})</span>
               </div>
               <a-button size="small" type="secondary" @click="exitChatMode">
                 <template #icon><icon-close /></template>
@@ -136,8 +143,8 @@
                 class="msg" 
                 :class="msg.role === 'user' ? 'right' : 'left'"
               >
-                <div class="avatar">{{ msg.role === 'ai' ? 'AI' : '我' }}</div>
-                <div class="bubble">{{ msg.content }}</div>
+                <div class="avatar">{{ msg.role === 'user' ? '我' : 'AI' }}</div>
+                <div class="bubble markdown-body" v-html="renderMessage(msg.content)"></div>
               </div>
               
               <div v-if="isLoading" class="msg left">
@@ -152,16 +159,39 @@
       </div>
 
       <div class="layer-4-input" v-if="isChatMode">
-        <div class="input-wrapper">
+        <div class="input-wrapper" :class="{ 'is-loading': isLoading }">
+          
+          <div class="mode-select">
+            <a-select 
+              v-model="currentMode" 
+              :style="{width:'110px'}" 
+              size="small"
+              :disabled="isLoading"
+            >
+              <a-option value="tog">ToG 推理</a-option>
+              <a-option value="rag">RAG 问答</a-option>
+            </a-select>
+          </div>
+
           <a-textarea 
             v-model="inputValue"
-            :placeholder="`正在向 ${selectedKB} 提问...`" 
+            :placeholder="isLoading ? 'AI 正在思考中...' : `正在使用 [${modeNameMap[currentMode]}] 模式提问...`" 
             :auto-size="{ minRows: 2, maxRows: 2 }"
             class="custom-input"
-            @keydown.enter.prevent="handleSend"
+            :disabled="isLoading"
+            @keydown.enter.prevent="handleSendClick"
           />
-          <div class="send-btn" @click="handleSend">
-            <icon-send size="20" />
+          
+          <div 
+            class="send-btn" 
+            :class="{ 
+              'disabled': !inputValue.trim() && !isLoading, 
+              'loading': isLoading 
+            }"
+            @click="handleSendClick"
+          >
+            <icon-close v-if="isLoading" size="20" style="color: #f53f3f;" />
+            <icon-send v-else size="20" />
           </div>
         </div>
       </div>
@@ -173,19 +203,46 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import { Message } from '@arco-design/web-vue'
+// ✅ 修复：删除了未使用的 IconPlus，保留了 IconUpload
 import { 
-  IconCommand, IconArrowLeft, IconApps, IconRobot, 
-  IconClose, IconSend, IconPlus 
+  IconCommand, IconArrowLeft, IconRobot, 
+  IconClose, IconSend, IconUpload 
 } from '@arco-design/web-vue/es/icon'
+import MarkdownIt from 'markdown-it'
+
+// 引入 API
+import { apiChatToG, apiRagQuery, apiBuildGraph, type ChatMessage } from '@/apis/tog/index'
 
 // === 状态管理 ===
 const isChatMode = ref(false)
-// 视图状态增加了 'kb-select'
 const viewState = ref<'overview' | 'device' | 'kb-select'>('overview')
 const inputValue = ref('')
 const chatTarget = ref('')
-const selectedKB = ref('') // 选中的知识库名称
+const selectedKBName = ref('') 
 const isLoading = ref(false)
+
+// 文件上传相关状态
+const isUploading = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+// 当前对话模式
+const currentMode = ref<'tog' | 'rag'>('tog')
+const modeNameMap = {
+  tog: '图谱推理',
+  rag: 'RAG 问答'
+}
+
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  breaks: true
+})
+const renderMessage = (content: string) => {
+  return md.render(content || '')
+}
+
+// 核心变量：存储当前选中的 kg_name
+const currentKgName = ref('') 
 
 // === 模拟数据 ===
 const companies = [
@@ -203,10 +260,10 @@ const devices = [
   { id: 103, name: '精密空调 C-03', status: 'normal' },
 ]
 
-// [新增] 知识图谱数据
 const knowledgeBases = [
   { 
     id: 1, 
+    kg_name: 'neo4j', 
     name: '服务器维修知识库', 
     date: '2023-10-12 00:00:00',
     nodes: 120, props: 120, relations: 120,
@@ -215,6 +272,7 @@ const knowledgeBases = [
   },
   { 
     id: 2, 
+    kg_name: 'network_graph', 
     name: '网络设备拓扑图谱', 
     date: '2023-11-05 10:20:00',
     nodes: 540, props: 210, relations: 880,
@@ -223,6 +281,7 @@ const knowledgeBases = [
   },
   { 
     id: 3, 
+    kg_name: 'env_graph', 
     name: '机房环境监控图谱', 
     date: '2024-01-01 09:00:00',
     nodes: 80, props: 40, relations: 60,
@@ -231,13 +290,8 @@ const knowledgeBases = [
   }
 ]
 
-interface ChatMessage {
-  role: 'ai' | 'user';
-  content: string;
-}
 const chatHistory = ref<ChatMessage[]>([])
 
-// 统计数据
 const currentStats = computed(() => {
   if (viewState.value === 'device') return { total: 3, pending: 1 }
   return { total: 128, pending: 3 }
@@ -249,41 +303,92 @@ const handleCompanyClick = (_comp: any) => {
   viewState.value = 'device'
 }
 
-// 1. 点击故障设备 -> 进入知识库选择
 const handleDeviceClick = (dev: any) => {
   if (dev.status === 'error') {
     chatTarget.value = dev.name
-    viewState.value = 'kb-select' // 跳转到新页面
+    viewState.value = 'kb-select' 
     Message.info('请选择要使用的知识库')
   } else {
     Message.success('设备运行正常')
   }
 }
 
-// 2. [新增] 点击知识库 -> 进入聊天
 const handleKBSelect = (kb: any) => {
-  selectedKB.value = kb.name
+  selectedKBName.value = kb.name
+  currentKgName.value = kb.kg_name
   isChatMode.value = true
+  currentMode.value = 'tog'
   
-  // 初始化对话
   chatHistory.value = [
-    { role: 'ai', content: `已加载 [${kb.name}]。针对 ${chatTarget.value}，请描述具体故障现象。` }
+    { role: 'assistant', content: `已加载 [${kb.name}]。请描述 ${chatTarget.value} 的具体故障现象。` }
   ]
 }
 
 const exitChatMode = () => {
   isChatMode.value = false
   inputValue.value = ''
-  // 退出时返回到知识库选择页，或者直接回设备页，看你需求
-  // 这里设为返回设备页
   viewState.value = 'device' 
+}
+
+// === 文件上传逻辑 ===
+const triggerUpload = () => {
+  fileInputRef.value?.click()
+}
+
+const handleFileUpload = async (e: Event) => {
+  const input = e.target as HTMLInputElement
+  if (!input.files || input.files.length === 0) return
+
+  const file = input.files[0]
+  
+  // ✅ 修复：增加非空检查，消除 TS 报错
+  if (!file) return
+
+  // 验证格式
+  if (!file.name.endsWith('.txt')) {
+    Message.error('请上传 .txt 格式文件')
+    return
+  }
+
+  const gragId = `graph_${Date.now()}`
+  
+  isUploading.value = true
+  try {
+    // ✅ 这里的 file 现在被 TS 确认是 File 类型了
+    const res = await apiBuildGraph({
+      grag_id: gragId,
+      file: file
+    })
+    
+    if (res.data.success) {
+      Message.success(`图谱构建成功！ID: ${gragId}`)
+    } else {
+      Message.error(res.data.message || '构建失败')
+    }
+  } catch (error: any) {
+    Message.error('上传请求失败，请检查网络或控制台')
+    console.error('Build Graph Error:', error)
+  } finally {
+    isUploading.value = false
+    input.value = '' // 清空以允许重复上传
+  }
+}
+
+// === 聊天逻辑 ===
+const handleSendClick = () => {
+  if (isLoading.value) {
+    Message.warning('正在思考中，请稍候...')
+    return
+  }
+  if (!inputValue.value.trim()) return
+  handleSend()
 }
 
 const handleSend = async () => {
   const text = inputValue.value.trim()
-  if (!text) return
+  if (!text || isLoading.value) return
 
-  chatHistory.value.push({ role: 'user', content: text })
+  chatHistory.value.push({ role: 'user', content: text } as ChatMessage)
   inputValue.value = ''
   isLoading.value = true
 
@@ -291,21 +396,75 @@ const handleSend = async () => {
   const chatBody = document.querySelector('.chat-body')
   if (chatBody) chatBody.scrollTop = chatBody.scrollHeight
 
-  setTimeout(() => {
-    isLoading.value = false
-    chatHistory.value.push({ 
-      role: 'ai', 
-      content: `基于${selectedKB.value}的检索结果：该故障通常由风扇转速过低引起，建议检查风扇模块供电电压。` 
+  try {
+    let res: any
+
+    if (currentMode.value === 'tog') {
+      // --- ToG 模式 ---
+      const payload = {
+        kg_name: currentKgName.value || 'neo4j',
+        messages: [{ role: 'user' as const, content: text }],
+        max_depth: 3,
+        max_width: 3
+      }
+      console.log('🚀 [ToG] 发送参数:', payload)
+      res = await apiChatToG(payload)
+
+    } else {
+      // --- RAG 模式 ---
+      const payload = {
+        grag_id: '2026001_1', 
+        method: 'global',
+        messages: [{ role: 'user' as const, content: text }]
+      }
+      console.log('🚀 [RAG] 发送参数:', payload)
+      res = await apiRagQuery(payload)
+    }
+
+    console.log('⭐⭐⭐ 后端返回:', res)
+    const serverData = res.data?.data || res.data || res
+
+    let answer = ''
+    if (serverData) {
+      answer =
+        serverData.answer || 
+        serverData.data?.answer || 
+        serverData.result?.answer ||
+        serverData.message || 
+        serverData.content || 
+        (typeof serverData === 'string' ? serverData : '')
+    }
+
+    if (!answer) {
+      answer = '⚠️ 未找到回答，请检查控制台日志。'
+    }
+    
+    chatHistory.value.push({ role: 'assistant', content: answer })
+
+  } catch (error: any) {
+    console.error('API Error:', error)
+    let errorMsg = error.message || '未知错误'
+    
+    if (error.response && error.response.status === 404) {
+       errorMsg = `请求路径未找到 (404)。请确认后端服务路径前缀是否为 /graph-rag`
+    } else if (error.response) {
+       errorMsg = `服务器报错 (${error.response.status}): ${error.response.statusText}`
+    }
+
+    chatHistory.value.push({
+      role: 'assistant',
+      content: `⚠️ 请求失败: ${errorMsg}`
     })
+  } finally {
+    isLoading.value = false
     nextTick(() => {
       if (chatBody) chatBody.scrollTop = chatBody.scrollHeight
     })
-  }, 1500)
+  }
 }
 </script>
 
 <style scoped lang="scss">
-/* 保持原有布局不变 */
 .dashboard-container {
   display: flex;
   height: 100%;
@@ -431,7 +590,7 @@ const handleSend = async () => {
   }
 }
 
-/* === [新增] 知识库选择页面样式 (参考截图) === */
+/* === 知识库选择页面样式 === */
 .kb-container {
   .kb-header-row {
     display: flex;
@@ -443,12 +602,12 @@ const handleSend = async () => {
 
   .kb-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr); /* 两列布局 */
+    grid-template-columns: repeat(2, 1fr);
     gap: 20px;
   }
 
   .kb-card {
-    background: #e8f3ff; /* 浅蓝背景底色 */
+    background: #e8f3ff;
     border-radius: 8px;
     overflow: hidden;
     cursor: pointer;
@@ -461,10 +620,8 @@ const handleSend = async () => {
       transform: translateY(-2px);
     }
 
-    /* 上半部分：蓝色渐变区 */
     .kb-top {
       padding: 16px 20px;
-      /* 简单的蓝色渐变背景 */
       background: linear-gradient(90deg, #94BFFF 0%, #BEDAFF 100%);
       
       .kb-title-row {
@@ -474,7 +631,6 @@ const handleSend = async () => {
       .kb-time { font-size: 12px; color: #4e5969; }
     }
 
-    /* 统计数据行 */
     .kb-stats {
       display: flex;
       padding: 12px 20px;
@@ -486,7 +642,6 @@ const handleSend = async () => {
       }
     }
 
-    /* 描述框 */
     .kb-desc {
       background: #ffffff;
       margin: 0 20px 10px 20px;
@@ -497,7 +652,6 @@ const handleSend = async () => {
       border-radius: 4px;
     }
 
-    /* 标签行 */
     .kb-tags {
       padding: 0 20px 16px 20px;
       display: flex;
@@ -514,22 +668,57 @@ const handleSend = async () => {
   }
 }
 
-.layer-3-features {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
-  .feature-btn {
-    background: #e8fffa; border: 1px dashed #00d0b6; color: #009a86;
-    height: 60px; display: flex; align-items: center; justify-content: center;
-    border-radius: 8px; cursor: pointer; font-weight: 500; gap: 8px;
-    &:hover { background: #00d0b6; color: #fff; }
-  }
-}
-
+/* === 修改后的输入区域 === */
 .layer-4-input {
   .input-wrapper {
-    display: flex; align-items: center; border: 2px solid #165DFF; border-radius: 8px; padding: 4px; background: #fff;
+    display: flex; 
+    align-items: center; 
+    border: 2px solid #165DFF; 
+    border-radius: 8px; 
+    padding: 4px; 
+    background: #fff;
+    transition: all 0.3s;
+    
+    &.is-loading {
+      border-color: #e5e6eb; /* 发送中变灰一点 */
+      background: #f7f8fa;
+    }
+
+    /* 新增：左侧模式选择 */
+    .mode-select {
+      border-right: 1px solid #f2f3f5;
+      padding-right: 8px;
+      margin-right: 8px;
+    }
+
     .custom-input { border: none; background: transparent; }
-    .custom-input :deep(.arco-textarea) { border: none; }
-    .send-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: #165DFF; cursor: pointer; border-left: 1px solid #f2f3f5; }
+    .custom-input :deep(.arco-textarea) { border: none; background: transparent; }
+    
+    .send-btn { 
+      width: 40px; 
+      height: 40px; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      color: #165DFF; 
+      cursor: pointer; 
+      border-left: 1px solid #f2f3f5;
+      transition: all 0.2s;
+      
+      &:hover { background: #f2f3f5; }
+      
+      /* 禁用状态 */
+      &.disabled {
+        color: #c9cdd4;
+        cursor: not-allowed;
+      }
+      
+      /* 加载状态 (红色停止按钮) */
+      &.loading {
+        cursor: not-allowed; /* 如果做停止功能改成 pointer */
+        background: #fff0f0;
+      }
+    }
   }
 }
 
@@ -560,4 +749,16 @@ const handleSend = async () => {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.markdown-body {
+  font-size: 14px;
+  line-height: 1.6;
+  :deep(p) { margin: 0 0 8px 0; &:last-child { margin-bottom: 0; } }
+  :deep(strong) { font-weight: bold; color: #1d2129; }
+  :deep(ul), :deep(ol) { padding-left: 20px; margin: 4px 0 8px 0; }
+  :deep(li) { margin-bottom: 4px; list-style-type: disc; }
+  :deep(code) { background-color: rgba(0, 0, 0, 0.06); padding: 2px 4px; border-radius: 4px; font-family: monospace; color: #c7254e; }
+  :deep(pre) { background-color: #2c3e50; color: #fff; padding: 10px; border-radius: 6px; overflow-x: auto; code { background-color: transparent; color: inherit; padding: 0; } }
+  :deep(a) { color: #165DFF; text-decoration: underline; }
+}
 </style>
